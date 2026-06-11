@@ -1,0 +1,75 @@
+name: Flight Pipeline - PySpark on Dataproc
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # Every hour automatically
+  push:
+    branches: [ main ]     # Also runs on every git push
+  workflow_dispatch:        # Manual trigger button
+
+env:
+  PROJECT_ID: dataeng2-481419
+  REGION: us-central1
+  CLUSTER_NAME: flight-spark-cluster
+  BUCKET: flight-pipeline-raw
+
+jobs:
+  run-spark-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+    # ── Step 1: Checkout repo ──────────────────────────────────
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # ── Step 2: Authenticate to GCP ───────────────────────────
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    # ── Step 3: Set up gcloud CLI ──────────────────────────────
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ env.PROJECT_ID }}
+
+    # ── Step 4: Upload PySpark script to GCS ──────────────────
+    - name: Upload PySpark script to GCS
+      run: |
+        gsutil cp scripts/spark_clean.py \
+          gs://${{ env.BUCKET }}/scripts/spark_clean.py
+        echo "✅ Script uploaded to GCS"
+
+    # ── Step 5: Create Dataproc Cluster ───────────────────────
+    - name: Create Dataproc Cluster
+      run: |
+        gcloud dataproc clusters create ${{ env.CLUSTER_NAME }} \
+          --region=${{ env.REGION }} \
+          --single-node \
+          --master-machine-type=n1-standard-2 \
+          --master-boot-disk-size=50GB \
+          --image-version=2.1-debian11 \
+          --project=${{ env.PROJECT_ID }}
+        echo "✅ Cluster created"
+
+    # ── Step 6: Submit PySpark Job ─────────────────────────────
+    - name: Submit PySpark Job to Dataproc
+      run: |
+        gcloud dataproc jobs submit pyspark \
+          gs://${{ env.BUCKET }}/scripts/spark_clean.py \
+          --cluster=${{ env.CLUSTER_NAME }} \
+          --region=${{ env.REGION }} \
+          --jars=gs://spark-lib/bigquery/spark-bigquery-with-dependencies_2.12-0.32.2.jar \
+          --project=${{ env.PROJECT_ID }}
+        echo "✅ PySpark job completed"
+
+    # ── Step 7: Delete Cluster (save costs!) ──────────────────
+    - name: Delete Dataproc Cluster
+      if: always()   # Delete even if job fails
+      run: |
+        gcloud dataproc clusters delete ${{ env.CLUSTER_NAME }} \
+          --region=${{ env.REGION }} \
+          --project=${{ env.PROJECT_ID }} \
+          --quiet
+        echo "✅ Cluster deleted"
