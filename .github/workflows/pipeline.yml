@@ -11,7 +11,7 @@ env:
   PROJECT_ID: dataeng2-481419
   REGION: us-central1
   CLUSTER_NAME: flight-spark-cluster
-  BUCKET: flight-pipeline-raw
+  BUCKET: onky-flight-pipeline-raw
 
 jobs:
   run-spark-pipeline:
