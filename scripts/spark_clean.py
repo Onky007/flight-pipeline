@@ -12,7 +12,7 @@ spark.conf.set("viewsEnabled", "true")
 spark.conf.set("materializationDataset", "staging")
 
 PROJECT = "dataeng2-481419"
-BUCKET  = "flight-pipeline-raw"
+BUCKET  = "onky-flight-pipeline-raw"
 
 print("✅ Spark Session started on Dataproc!")
 
