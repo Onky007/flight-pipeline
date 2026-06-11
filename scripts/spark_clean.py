@@ -77,6 +77,7 @@ hist_clean.write.format("bigquery") \
     .option("table", f"{PROJECT}.staging.stg_flights_historical") \
     .option("temporaryGcsBucket", BUCKET) \
     .option("writeDisposition", "WRITE_TRUNCATE") \
+    .mode("overwrite") \
     .save()
 print("✅ Historical Silver written to BigQuery!")
 
@@ -115,6 +116,7 @@ live_clean.write.format("bigquery") \
     .option("table", f"{PROJECT}.staging.stg_flights_live") \
     .option("temporaryGcsBucket", BUCKET) \
     .option("writeDisposition", "WRITE_TRUNCATE") \
+    .mode("overwrite") \
     .save()
 print("✅ Live Silver written to BigQuery!")
 print("\n🎉 Dataproc PySpark pipeline COMPLETE!")
