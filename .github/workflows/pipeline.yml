@@ -8,9 +8,8 @@ on:
   workflow_dispatch:        # Manual trigger button
 
 env:
-
   PROJECT_ID: dataeng2-481419
-  REGION: us-east1
+  REGION: europe-west1
   CLUSTER_NAME: flight-spark-cluster
   BUCKET: onky-flight-pipeline-raw
 
@@ -47,7 +46,7 @@ jobs:
       run: |
         gcloud dataproc clusters create ${{ env.CLUSTER_NAME }} \
           --region=${{ env.REGION }} \
-          --zone=us-east1-b \
+          --zone=europe-west1-b \
           --single-node \
           --master-machine-type=n1-standard-4 \
           --master-boot-disk-size=50GB \
