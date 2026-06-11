@@ -22,24 +22,33 @@ hist_df = spark.read.format("bigquery") \
     .load()
 print(f"📥 Historical Bronze: {hist_df.count():,} rows")
 
-# ── Clean Historical ────────────────────────────────────────────
+# ── Clean Historical (Bronze → Silver) ─────────────────────────
 hist_clean = hist_df \
-    .withColumnRenamed("FL_DATE",           "flight_date") \
-    .withColumnRenamed("OP_CARRIER",        "carrier_code") \
-    .withColumnRenamed("OP_CARRIER_FL_NUM", "flight_number") \
-    .withColumnRenamed("ORIGIN",            "origin_airport") \
-    .withColumnRenamed("DEST",              "dest_airport") \
-    .withColumnRenamed("DEP_DELAY",         "dep_delay_min") \
-    .withColumnRenamed("ARR_DELAY",         "arr_delay_min") \
-    .withColumnRenamed("CANCELLED",         "is_cancelled") \
-    .withColumnRenamed("DISTANCE",          "distance_miles") \
-    .withColumnRenamed("AIR_TIME",          "air_time_min") \
-    .withColumnRenamed("CARRIER_DELAY",     "carrier_delay_min") \
-    .withColumnRenamed("WEATHER_DELAY",     "weather_delay_min") \
-    .withColumnRenamed("NAS_DELAY",         "nas_delay_min") \
+    .withColumnRenamed("FL_DATE",              "flight_date") \
+    .withColumnRenamed("AIRLINE_CODE",         "carrier_code") \
+    .withColumnRenamed("AIRLINE",              "carrier_name") \
+    .withColumnRenamed("FL_NUMBER",            "flight_number") \
+    .withColumnRenamed("ORIGIN",               "origin_airport") \
+    .withColumnRenamed("ORIGIN_CITY",          "origin_city") \
+    .withColumnRenamed("DEST",                 "dest_airport") \
+    .withColumnRenamed("DEST_CITY",            "dest_city") \
+    .withColumnRenamed("DEP_DELAY",            "dep_delay_min") \
+    .withColumnRenamed("ARR_DELAY",            "arr_delay_min") \
+    .withColumnRenamed("CANCELLED",            "is_cancelled") \
+    .withColumnRenamed("DISTANCE",             "distance_miles") \
+    .withColumnRenamed("AIR_TIME",             "air_time_min") \
+    .withColumnRenamed("DELAY_DUE_CARRIER",    "carrier_delay_min") \
+    .withColumnRenamed("DELAY_DUE_WEATHER",    "weather_delay_min") \
+    .withColumnRenamed("DELAY_DUE_NAS",        "nas_delay_min") \
+    .withColumnRenamed("DELAY_DUE_SECURITY",   "security_delay_min") \
+    .withColumnRenamed("CANCELLATION_CODE",    "cancellation_code") \
     .withColumn("dep_delay_min",   col("dep_delay_min").cast(FloatType())) \
     .withColumn("arr_delay_min",   col("arr_delay_min").cast(FloatType())) \
     .withColumn("distance_miles",  col("distance_miles").cast(FloatType())) \
+    .withColumn("air_time_min",    col("air_time_min").cast(FloatType())) \
+    .withColumn("carrier_delay_min",  col("carrier_delay_min").cast(FloatType())) \
+    .withColumn("weather_delay_min",  col("weather_delay_min").cast(FloatType())) \
+    .withColumn("nas_delay_min",      col("nas_delay_min").cast(FloatType())) \
     .withColumn("carrier_code",    upper(trim(col("carrier_code")))) \
     .withColumn("origin_airport",  upper(trim(col("origin_airport")))) \
     .withColumn("dest_airport",    upper(trim(col("dest_airport")))) \
@@ -56,9 +65,12 @@ hist_clean = hist_df \
         when(col("carrier_delay_min") > 0,  lit("CARRIER"))
         .when(col("weather_delay_min") > 0, lit("WEATHER"))
         .when(col("nas_delay_min") > 0,     lit("NAS"))
+        .when(col("security_delay_min") > 0,lit("SECURITY"))
         .otherwise(                         lit("OTHER"))
     ) \
     .withColumn("processed_at", current_timestamp())
+
+print(f"✅ Historical Silver rows: {hist_clean.count():,}")
 
 # ── Write Historical Silver ─────────────────────────────────────
 hist_clean.write.format("bigquery") \
@@ -66,7 +78,7 @@ hist_clean.write.format("bigquery") \
     .option("temporaryGcsBucket", BUCKET) \
     .option("writeDisposition", "WRITE_TRUNCATE") \
     .save()
-print("✅ Historical Silver written!")
+print("✅ Historical Silver written to BigQuery!")
 
 # ── Read Bronze Live ────────────────────────────────────────────
 live_df = spark.read.format("bigquery") \
@@ -96,12 +108,15 @@ live_clean = live_df \
     .filter(col("carrier_code") != "") \
     .withColumn("processed_at", current_timestamp())
 
+print(f"✅ Live Silver rows: {live_clean.count():,}")
+
 # ── Write Live Silver ───────────────────────────────────────────
 live_clean.write.format("bigquery") \
     .option("table", f"{PROJECT}.staging.stg_flights_live") \
     .option("temporaryGcsBucket", BUCKET) \
     .option("writeDisposition", "WRITE_TRUNCATE") \
     .save()
-print("✅ Live Silver written!")
+print("✅ Live Silver written to BigQuery!")
 print("\n🎉 Dataproc PySpark pipeline COMPLETE!")
+
 spark.stop()
